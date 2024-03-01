@@ -1,52 +1,109 @@
-const Post = require('../models/post');
+const Post = require('../models/Post');
+const mongoose = require('mongoose');
 
 // get all posts
-function getAllPosts(req,res){
-    const posts = Post.getAllPosts();
-    res.json(posts)
+async function getAllPosts(req, res){
+    try {
+        const pageSize = req.query.ps || 10;
+        const pageNumber = req.query.pn || 1;
+        
+        const filter = {};
+
+        if (req.query.title) {
+            filter.title = req.query.title;
+        }
+
+        if (req.query.author) {
+            filter.author = req.query.author;
+        }
+
+        if (req.query.category) {
+            filter.category = req.query.category;
+        }
+
+        if (req.query.date) {
+            filter.createdAt = { $gte: new Date(parseInt(req.query.date)) };
+        }
+
+        const skip = (pageNumber - 1) * pageSize;
+
+        const posts = await Post.find(filter).skip(skip).limit(pageSize)
+
+        if(!posts || posts.length === 0){
+            return res.status(404).json({message: 'There are no Posts'})
+        }
+        res.status(200).json(posts)
+    } catch (error) {
+        res.status(500).json({error: error.message})
+    }
 }
 
 // get post by id
-function getPost(req,res){
-    const id = req.params.id;
-    const post = Post.getPost(id);
-    res.json(post)
-}
+async function getPost(req, res){
+    try {
+        const id = req.params.id;
 
-// create new post
-function createPost(req, res){
-    const {title, content, author} = req.body;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid user ID' });
+        }
+        
+        const post = await Post.findOne({_id: id});
 
-    const post = {
-        title,
-        content,
-        author
+        if(!post){
+            return res.status(404).json({message: 'Post not found'})
+        }
+        return res.status(200).json(post)
+    } catch (error) {
+        res.status(500).json({error: error.message})
     }
-
-    const newPost = Post.createPost(post)
-    res.json(newPost)
 }
 
-// update post by id
-function updatePost(req, res){
-    const id = req.params.id;
-    const updatedPost = req.body;
+async function createPost(req, res){
+    try {
+        const {title, content, author} = req.body;
+        const post = new Post({
+            title, 
+            content,
+            author
+        });
 
-    const post = Post.updatePost(id, updatedPost);
-
-    if (post === null) {
-        return res.status(404).json({ error: 'Post not found' });
+        await post.save();
+        res.status(200).json(post)
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-
-    res.json(post);
 }
 
-// delete post by id
-function deletePost(req, res){
-    const id = req.params.id;
-    const post = Post.deletePost(id);
+async function updatePost(req, res){
+    try {
+        const id = req.params.id;
+        const filter = {_id: id};
+        const update = req.body;
+        const post = await Post.findOneAndUpdate(filter, update)
 
-    res.json(post)
+        if(!post){
+            res.status(404).json({message: 'Post not found'}) 
+        }
+
+        res.json({message: 'Post updated successfully', post})
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+}
+
+async function deletePost(req, res){
+    try {
+        const id = req.params.id;
+        const post = await Post.findOneAndDelete({_id: id})
+
+        if(!post){
+            res.status(404).json({message: 'Post not found'}) 
+        }
+
+        res.json({message: 'Post deleted successfully', post})
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 }
 
 module.exports = {
