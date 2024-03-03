@@ -18,6 +18,10 @@ const postSchema = new mongoose.Schema({
         required: true,
         match: [/^[a-zA-Z\s]+$/, 'Author name must contain only letters and spaces']
     },
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Users'
+    },
     createdAt: {
         type: Date,
         default: new Date()
